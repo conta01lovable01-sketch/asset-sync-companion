@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BottomNav } from "@/components/BottomNav";
 import { useSupabaseCommands } from "@/hooks/useSupabaseCommands";
+import { useDeviceStatusTracking } from "@/hooks/useDeviceStatusTracking";
 import { setupOnlineSync } from "@/lib/offline-cache";
 import { useEffect } from "react";
 import Index from "./pages/Index";
@@ -16,6 +17,7 @@ const queryClient = new QueryClient();
 
 function AppShell() {
   useSupabaseCommands();
+  useDeviceStatusTracking();
 
   useEffect(() => {
     setupOnlineSync();

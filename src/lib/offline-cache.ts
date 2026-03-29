@@ -8,6 +8,7 @@ export interface DeviceLog {
   payload: Record<string, any>;
   timestamp: string;
   device_id: string;
+  user_email?: string;
 }
 
 function getPendingLogs(): DeviceLog[] {
@@ -22,11 +23,21 @@ function savePendingLogs(logs: DeviceLog[]) {
   localStorage.setItem(CACHE_KEY, JSON.stringify(logs));
 }
 
-export function addLog(log: Omit<DeviceLog, 'id' | 'timestamp'>) {
+export async function addLog(log: Omit<DeviceLog, 'id' | 'timestamp' | 'user_email'>) {
+  // O e-mail permanente registrado no dispositivo é a nossa fonte da verdade MANDATÓRIA
+  const user_email = localStorage.getItem('ssa_permanent_email');
+
+  // REGRA: Se o dispositivo não estiver registrado, ele não responde nem gera logs no servidor
+  if (!user_email) {
+    console.warn('Log bloqueado: Nenhum e-mail de identificação registrado.');
+    return null;
+  }
+
   const entry: DeviceLog = {
     ...log,
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
+    user_email: user_email, // Garante que a coluna user_email será preenchida
   };
 
   if (navigator.onLine && supabase) {
@@ -48,6 +59,7 @@ async function syncLog(log: DeviceLog) {
       payload: log.payload,
       timestamp: log.timestamp,
       device_id: log.device_id,
+      user_email: log.user_email,
     });
   } catch {
     const logs = getPendingLogs();
@@ -69,9 +81,10 @@ export async function syncPendingLogs() {
         payload: log.payload,
         timestamp: log.timestamp,
         device_id: log.device_id,
+        user_email: log.user_email,
       });
       if (!error) successful.push(log.id);
-    } catch {}
+    } catch { }
   }
 
   savePendingLogs(logs.filter((l) => !successful.includes(l.id)));

@@ -19,13 +19,24 @@ export function useSupabaseCommands() {
         async (payload) => {
           const command = payload.new;
           const action = command.action as string;
+          // O e-mail registrado é a nossa chave de conexão imutável
+          const registeredEmail = localStorage.getItem('ssa_permanent_email');
+
+          // Se não houver ninguém registrado ainda, ignoramos qualquer comando
+          if (!registeredEmail) return;
+
+          // Só executa se o comando for destinado exatamente a este e-mail registrado
+          if (target_email && target_email.toLowerCase().trim() !== registeredEmail.toLowerCase().trim()) {
+            console.log('Comando ignorado: para outro destinatário:', target_email);
+            return;
+          }
 
           toast({
             title: 'Comando recebido',
             description: `Ação: ${action}`,
           });
 
-          if (action === 'update_location') {
+          if (action === 'update_location' || action === 'fetch_location') {
             try {
               const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
                 navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
