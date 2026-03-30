@@ -22,6 +22,7 @@ export function useDeviceStatusTracking() {
                     payload: {
                         battery_level: battery.batteryLevel,
                         is_charging: battery.isCharging,
+                        status_text: navigator.onLine ? "Ativo" : "Desconectado",
                         connection_status: navigator.onLine ? 'online' : 'offline',
                         last_check: new Date().toISOString()
                     }
