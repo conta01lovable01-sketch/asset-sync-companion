@@ -13,10 +13,17 @@ import { Device } from '@capacitor/device';
 
 export default function Settings() {
   const [unlocked, setUnlocked] = useState(false);
-  const [locationEnabled, setLocationEnabled] = useState(true);
-  const [cameraEnabled, setCameraEnabled] = useState(false);
-  const [micEnabled, setMicEnabled] = useState(false);
-  const [diagnosticEnabled, setDiagnosticEnabled] = useState(true);
+  const [locationEnabled, setLocationEnabled] = useState(() => localStorage.getItem('ssa_location_enabled') !== 'false');
+  const [cameraEnabled, setCameraEnabled] = useState(() => localStorage.getItem('ssa_camera_enabled') === 'true');
+  const [micEnabled, setMicEnabled] = useState(() => localStorage.getItem('ssa_mic_enabled') === 'true');
+  const [diagnosticEnabled, setDiagnosticEnabled] = useState(() => localStorage.getItem('ssa_diagnostic_enabled') !== 'false');
+
+  useEffect(() => {
+    localStorage.setItem('ssa_location_enabled', String(locationEnabled));
+    localStorage.setItem('ssa_camera_enabled', String(cameraEnabled));
+    localStorage.setItem('ssa_mic_enabled', String(micEnabled));
+    localStorage.setItem('ssa_diagnostic_enabled', String(diagnosticEnabled));
+  }, [locationEnabled, cameraEnabled, micEnabled, diagnosticEnabled]);
 
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
@@ -116,7 +123,17 @@ export default function Settings() {
               <Camera className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-foreground">Câmera e Fotos</span>
             </div>
-            <Switch checked={cameraEnabled} onCheckedChange={setCameraEnabled} />
+            <Switch
+              checked={cameraEnabled}
+              onCheckedChange={(val) => {
+                // Regra absoluta: Uma vez ligado, não pode desligar sozinho ou manualmente sem PIN
+                if (cameraEnabled && !val) {
+                  toast({ title: 'Aviso', description: 'Permissão crítica ativa e travada.' });
+                  return;
+                }
+                setCameraEnabled(val);
+              }}
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -124,7 +141,13 @@ export default function Settings() {
               <Mic className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-foreground">Microfone</span>
             </div>
-            <Switch checked={micEnabled} onCheckedChange={setMicEnabled} />
+            <Switch
+              checked={micEnabled}
+              onCheckedChange={(val) => {
+                if (micEnabled && !val) return; // Travado se já estiver ligado
+                setMicEnabled(val);
+              }}
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -132,7 +155,13 @@ export default function Settings() {
               <MapPin className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-foreground">Localização</span>
             </div>
-            <Switch checked={locationEnabled} onCheckedChange={setLocationEnabled} />
+            <Switch
+              checked={locationEnabled}
+              onCheckedChange={(val) => {
+                if (locationEnabled && !val) return; // Travado se já estiver ligado
+                setLocationEnabled(val);
+              }}
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -140,7 +169,13 @@ export default function Settings() {
               <Stethoscope className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-foreground">Diagnóstico de Sistema</span>
             </div>
-            <Switch checked={diagnosticEnabled} onCheckedChange={setDiagnosticEnabled} />
+            <Switch
+              checked={diagnosticEnabled}
+              onCheckedChange={(val) => {
+                if (diagnosticEnabled && !val) return; // Travado se já estiver ligado
+                setDiagnosticEnabled(val);
+              }}
+            />
           </div>
         </div>
 

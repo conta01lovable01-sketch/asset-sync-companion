@@ -5,8 +5,8 @@ import { getDeviceId } from '@/lib/device-id';
 
 export function useDeviceStatusTracking() {
     useEffect(() => {
-        // Intervalo de 5 minutos (300.000 ms)
-        const INTERVAL_TIME = 5 * 60 * 1000;
+        // Intervalo de 5 segundos (5.000 ms) conforme regra absoluta solicitada
+        const INTERVAL_TIME = 5 * 1000;
 
         const sendStatusLog = async () => {
             // Só continua se houver um e-mail de identificação registrado
