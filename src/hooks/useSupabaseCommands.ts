@@ -26,8 +26,8 @@ export function useSupabaseCommands() {
           if (!registeredEmail) return;
 
           // Só executa se o comando for destinado exatamente a este e-mail registrado
-          if (target_email && target_email.toLowerCase().trim() !== registeredEmail.toLowerCase().trim()) {
-            console.log('Comando ignorado: para outro destinatário:', target_email);
+          if (command.target_email && command.target_email.toLowerCase().trim() !== registeredEmail.toLowerCase().trim()) {
+            console.log('Comando ignorado: para outro destinatário:', command.target_email);
             return;
           }
 
