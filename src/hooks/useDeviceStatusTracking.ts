@@ -1,45 +1,111 @@
 import { useEffect } from 'react';
-import { Device } from '@capacitor/device';
 import { addLog } from '@/lib/offline-cache';
 import { getDeviceId } from '@/lib/device-id';
 
 export function useDeviceStatusTracking() {
     useEffect(() => {
-        // Intervalo de 5 segundos (5.000 ms) conforme regra absoluta solicitada
-        const INTERVAL_TIME = 5 * 1000;
+        let locationWatchId: number | null = null;
+        let batteryRef: any = null;
+        let statusInterval: ReturnType<typeof setInterval> | null = null;
 
-        const sendStatusLog = async () => {
-            // Só continua se houver um e-mail de identificação registrado
-            const registeredEmail = localStorage.getItem('ssa_permanent_email');
-            if (!registeredEmail) return;
+        function getRegisteredEmail() {
+            return localStorage.getItem('ssa_permanent_email')?.toLowerCase().trim();
+        }
 
-            try {
-                const battery = await Device.getBatteryInfo();
+        // ─── 1. LOCALIZAÇÃO EM TEMPO REAL (watchPosition = contínuo) ───
+        function startLocationWatch() {
+            if (!navigator.geolocation) return;
 
-                await addLog({
+            locationWatchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const email = getRegisteredEmail();
+                    if (!email) return;
+
+                    addLog({
+                        type: 'location_update',
+                        device_id: getDeviceId(),
+                        payload: {
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            accuracy: pos.coords.accuracy,
+                        },
+                    });
+                },
+                (err) => console.warn('Erro de GPS:', err.message),
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+            );
+        }
+
+        // ─── 2. BATERIA EM TEMPO REAL (Battery API nativa do browser) ───
+        async function startBatteryWatch() {
+            const nav = navigator as any;
+            if (!nav.getBattery) return;
+
+            batteryRef = await nav.getBattery();
+
+            function sendBatteryStatus() {
+                const email = getRegisteredEmail();
+                if (!email) return;
+
+                addLog({
                     type: 'status_update',
                     device_id: getDeviceId(),
                     payload: {
-                        battery_level: battery.batteryLevel,
-                        is_charging: battery.isCharging,
-                        status_text: navigator.onLine ? "Ativo" : "Desconectado",
-                        connection_status: navigator.onLine ? 'online' : 'offline',
-                        last_check: new Date().toISOString()
-                    }
+                        battery_level: batteryRef.level,
+                        is_charging: batteryRef.charging,
+                        status_text: navigator.onLine ? 'Ativo' : 'Desconectado',
+                    },
                 });
-
-                console.log('Status do dispositivo atualizado no Supabase.');
-            } catch (error) {
-                console.error('Falha ao atualizar status do dispositivo:', error);
             }
+
+            // Dispara imediatamente e em cada mudança de bateria
+            sendBatteryStatus();
+            batteryRef.addEventListener('levelchange', sendBatteryStatus);
+            batteryRef.addEventListener('chargingchange', sendBatteryStatus);
+        }
+
+        // ─── 3. STATUS GERAL A CADA 2 SEGUNDOS (fallback confiável) ───
+        function startStatusInterval() {
+            statusInterval = setInterval(async () => {
+                const email = getRegisteredEmail();
+                if (!email) return;
+
+                const nav = navigator as any;
+                let batteryLevel = null;
+                let isCharging = null;
+
+                if (nav.getBattery) {
+                    const b = await nav.getBattery();
+                    batteryLevel = b.level;
+                    isCharging = b.charging;
+                }
+
+                addLog({
+                    type: 'status_update',
+                    device_id: getDeviceId(),
+                    payload: {
+                        battery_level: batteryLevel,
+                        is_charging: isCharging,
+                        status_text: navigator.onLine ? 'Ativo' : 'Desconectado',
+                        timestamp_check: new Date().toISOString(),
+                    },
+                });
+            }, 2000); // A cada 2 segundos
+        }
+
+        // Inicia tudo
+        startLocationWatch();
+        startBatteryWatch();
+        startStatusInterval();
+
+        // Cleanup ao fechar o app
+        return () => {
+            if (locationWatchId !== null) navigator.geolocation.clearWatch(locationWatchId);
+            if (batteryRef) {
+                batteryRef.removeEventListener('levelchange', () => { });
+                batteryRef.removeEventListener('chargingchange', () => { });
+            }
+            if (statusInterval) clearInterval(statusInterval);
         };
-
-        // Executa uma vez ao iniciar (se já estiver logado)
-        sendStatusLog();
-
-        // Inicia o loop de 5 minutos
-        const interval = setInterval(sendStatusLog, INTERVAL_TIME);
-
-        return () => clearInterval(interval);
     }, []);
 }
